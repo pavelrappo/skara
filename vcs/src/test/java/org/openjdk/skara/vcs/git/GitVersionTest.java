@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,6 +30,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -59,7 +60,6 @@ public class GitVersionTest {
         assertEquals(version.minor(), minor);
         assertEquals(version.security(), security);
 
-        assertFalse(version.isUnknown());
         assertTrue(version.isKnownSupported());
     }
 
@@ -86,7 +86,6 @@ public class GitVersionTest {
         assertEquals(version.minor(), minor);
         assertEquals(version.security(), security);
 
-        assertFalse(version.isUnknown());
         assertFalse(version.isKnownSupported());
     }
 
@@ -99,10 +98,7 @@ public class GitVersionTest {
     @ParameterizedTest
     @MethodSource("unknownVersions")
     void testUnsupportedVersions(String versionsString) {
-        GitVersion version = GitVersion.parse(versionsString);
-
-        assertTrue(version.isUnknown());
-        assertFalse(version.isKnownSupported());
+        assertNull(GitVersion.parse(versionsString));
     }
 
 }

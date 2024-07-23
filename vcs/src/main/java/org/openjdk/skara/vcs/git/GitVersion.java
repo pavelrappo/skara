@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,15 +25,15 @@ package org.openjdk.skara.vcs.git;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class GitVersion {
 
     private static final Pattern versionPattern = Pattern.compile(
             "git version (?<versionString>.*?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<security>\\d+).*)");
-    private static final GitVersion UNKNOWN = new GitVersion("UNKNOWN", -1, -1, -1);
 
     private final String versionString;
     private final int major;
@@ -47,10 +47,11 @@ public class GitVersion {
         this.security = security;
     }
 
-    public static GitVersion parse(String version) {
+    /* exposed for testing */
+    protected static GitVersion parse(String version) {
         var matcher = versionPattern.matcher(version);
         if (!matcher.find()) {
-            return UNKNOWN;
+            return null;
         }
 
         return new GitVersion(
@@ -66,16 +67,18 @@ public class GitVersion {
         try {
             var code = p.waitFor();
             if (code != 0) throw new IOException("git --version exited with code: " + code);
-            try (var lines = new BufferedReader(new InputStreamReader(p.getInputStream())).lines()) {
-                var linesList = lines.collect(Collectors.toList());
-                for (var line : linesList) {
-                    var version = parse(line);
-                    if (version != UNKNOWN) {
-                        return version;
-                    }
+
+            List<String> lines = new LinkedList<>();
+            try (var reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                var line = reader.readLine();
+                var v = parse(line);
+                if (v != null) {
+                    return v;
+                } else {
+                    lines.add(line);
                 }
             }
-            return UNKNOWN;
+            throw new IOException("Couldn't parse git version: " + String.join("\n", lines));
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
@@ -110,10 +113,6 @@ public class GitVersion {
         }
 
         return false;
-    }
-
-    public boolean isUnknown() {
-        return this == UNKNOWN;
     }
 
     public int major() {
