@@ -22,13 +22,11 @@
  */
 package org.openjdk.skara.vcs.git;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+
+import org.openjdk.skara.process.Process;
 
 public class GitVersion {
 
@@ -63,26 +61,21 @@ public class GitVersion {
     }
 
     public static GitVersion get() throws IOException {
-        var p = new ProcessBuilder().command("git", "--version").start();
-        try {
-            var code = p.waitFor();
-            if (code != 0) throw new IOException("git --version exited with code: " + code);
-
-            List<String> lines = new LinkedList<>();
-            try (var reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
-                var line = reader.readLine();
-                var v = parse(line);
-                if (v != null) {
-                    return v;
-                } else {
-                    lines.add(line);
-                }
+        try (var e = Process.capture("git", "--version").execute()) {
+            var r = e.await();
+            var version = r.stdout().stream()
+                    .map(GitVersion::parse)
+                    .filter(Objects::nonNull)
+                    .findFirst();
+            if (r.status() != 0 || version.isEmpty()) {
+                throw new IOException("Couldn't determine git version. [stdout] "
+                        + r.stdout() + "\n[stderr] " + r.stderr());
+            } else {
+                return version.get();
             }
-            throw new IOException("Couldn't parse git version: " + String.join("\n", lines));
-        } catch (InterruptedException e) {
-            throw new IOException(e);
         }
     }
+
 
     public boolean isKnownSupported() {
         if (major < 2) {
